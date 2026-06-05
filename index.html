@@ -1,0 +1,596 @@
+import { useState, useEffect, useMemo } from "react";
+
+const STYLES = `
+  @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #060606;
+    --s1: #0f0f0f;
+    --s2: #161616;
+    --s3: #1e1e1e;
+    --fire: #f54d00;
+    --ember: #ff7a30;
+    --gold: #c8923a;
+    --text: #ede8df;
+    --dim: #635e57;
+    --mid: #908880;
+    --border: rgba(255,255,255,0.055);
+    --border-bright: rgba(255,255,255,0.11);
+  }
+
+  body { background: var(--bg); color: var(--text); overflow-x: hidden; }
+  h1, h2, h3, h4 { overflow-wrap: break-word; word-break: break-word; }
+  p, li, span { overflow-wrap: break-word; }
+
+  ::-webkit-scrollbar { width: 3px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--s3); border-radius: 2px; }
+
+  @keyframes eqBar {
+    0%   { transform: scaleY(0.08); }
+    100% { transform: scaleY(1); }
+  }
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(28px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 0.55; transform: scale(1); }
+    50%      { opacity: 1;    transform: scale(1.15); }
+  }
+  @keyframes grain {
+    0%,100%{ transform:translate(0,0) }
+    10%    { transform:translate(-2%,-3%) }
+    20%    { transform:translate(3%,2%) }
+    30%    { transform:translate(-1%,4%) }
+    40%    { transform:translate(4%,-1%) }
+    50%    { transform:translate(-3%,1%) }
+    60%    { transform:translate(2%,4%) }
+    70%    { transform:translate(-2%,-2%) }
+    80%    { transform:translate(3%,-3%) }
+    90%    { transform:translate(-4%,2%) }
+  }
+  @keyframes slideSuccess {
+    from { opacity:0; transform:scale(0.92) translateY(16px); }
+    to   { opacity:1; transform:scale(1)    translateY(0); }
+  }
+  @keyframes shimmerLine {
+    0%   { background-position: -200% center; }
+    100% { background-position:  200% center; }
+  }
+
+  .grain {
+    position: fixed; top:-50%; left:-50%; width:200%; height:200%;
+    pointer-events:none; z-index:9999; opacity:0.032;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.68' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    animation: grain 7s steps(10) infinite;
+  }
+
+  .nav-link {
+    background: none; border: none; color: var(--mid);
+    font-size: 13px; font-family: inherit; cursor: pointer;
+    padding: 6px 4px; transition: color 0.2s;
+    text-decoration: none; display: inline-block;
+  }
+  .nav-link:hover { color: var(--text); }
+
+  .btn-fire {
+    background: var(--fire); color: #fff; border: none; cursor: pointer;
+    font-family: inherit; font-weight: 600; position: relative; overflow: hidden;
+    transition: background 0.2s, transform 0.15s;
+  }
+  .btn-fire::after {
+    content:''; position:absolute; top:0; left:-100%; width:100%; height:100%;
+    background: linear-gradient(90deg,transparent,rgba(255,255,255,0.14),transparent);
+    transition: left 0.38s ease;
+  }
+  .btn-fire:hover::after { left:100%; }
+  .btn-fire:hover { background: var(--ember); transform: translateY(-1px); }
+  .btn-fire:active { transform: translateY(0); }
+  .btn-fire:disabled { opacity:0.4; cursor:not-allowed; transform:none; }
+
+  .btn-ghost {
+    background: transparent; color: var(--text);
+    border: 1px solid var(--border); cursor: pointer;
+    font-family: inherit; transition: border-color 0.2s, background 0.2s;
+  }
+  .btn-ghost:hover { border-color: var(--border-bright); background: rgba(255,255,255,0.035); }
+
+  .card {
+    background: var(--s1); border: 1px solid var(--border);
+    border-radius: 18px; transition: transform 0.28s ease, border-color 0.28s ease, box-shadow 0.28s ease;
+  }
+  .card:hover {
+    transform: translateY(-5px);
+    border-color: rgba(245,77,0,0.22);
+    box-shadow: 0 16px 48px rgba(245,77,0,0.07);
+  }
+
+  .step-num {
+    font-family: 'Syne', sans-serif; font-weight: 800;
+    font-size: 52px; line-height: 1;
+    color: rgba(245,77,0,0.1);
+    transition: color 0.3s;
+  }
+  .step-wrap:hover .step-num { color: rgba(245,77,0,0.22); }
+
+  .field {
+    background: var(--s2); border: 1px solid var(--border);
+    color: var(--text); font-family: inherit; font-size: 15px;
+    border-radius: 10px; padding: 14px 16px; width: 100%;
+    outline: none; transition: border-color 0.2s;
+    -webkit-appearance: none;
+  }
+  .field::placeholder { color: var(--dim); }
+  .field:focus { border-color: rgba(245,77,0,0.45); }
+  .field option { background: var(--s2); }
+
+  .hero-tag  { animation: fadeIn  0.7s 0.1s ease both; }
+  .hero-h1   { animation: fadeUp  0.8s 0.25s ease both; }
+  .hero-sub  { animation: fadeUp  0.8s 0.4s  ease both; }
+  .hero-ctas { animation: fadeUp  0.8s 0.55s ease both; }
+  .hero-meta { animation: fadeIn  1s   0.75s ease both; }
+  .hero-eq   { animation: fadeIn  1s   0.9s  ease both; }
+
+  .success-wrap { animation: slideSuccess 0.45s ease forwards; }
+
+  .shimmer-text {
+    background: linear-gradient(90deg, var(--text) 0%, var(--ember) 40%, var(--gold) 60%, var(--text) 100%);
+    background-size: 200% auto;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: shimmerLine 3s linear infinite;
+  }
+
+  .live-dot { animation: pulse 2.2s ease-in-out infinite; }
+
+  @media (max-width: 900px) {
+    .services-grid { grid-template-columns: 1fr 1fr !important; }
+    .process-grid  { grid-template-columns: 1fr 1fr !important; }
+    .stats-grid    { grid-template-columns: 1fr 1fr !important; }
+  }
+  @media (max-width: 540px) {
+    .services-grid { grid-template-columns: 1fr !important; }
+    .process-grid  { grid-template-columns: 1fr !important; }
+    .stats-grid    { grid-template-columns: 1fr 1fr !important; }
+    .nav-links     { display: none !important; }
+  }
+`;
+
+function EQLogo({ size = 18 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" fill="none">
+      <rect x="2" y="8"  width="3" height="10" rx="1.5" fill="white" opacity="0.9"/>
+      <rect x="7" y="4"  width="3" height="14" rx="1.5" fill="white"/>
+      <rect x="12" y="6" width="3" height="12" rx="1.5" fill="white" opacity="0.85"/>
+      <rect x="17" y="10" width="3" height="8" rx="1.5" fill="white" opacity="0.7"/>
+    </svg>
+  );
+}
+
+export default function SonicForge() {
+  const [form, setForm] = useState({ name: "", email: "", genre: "" });
+  const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [count, setCount] = useState(83);
+
+  const barCount = 52;
+  const bars = useMemo(() => Array.from({ length: barCount }, (_, i) => ({
+    h: 12 + Math.random() * 88,
+    dur: (0.35 + Math.random() * 0.75).toFixed(2),
+    delay: (i * 0.038).toFixed(3),
+  })), []);
+
+  useEffect(() => {
+    const style = document.createElement("style");
+    style.textContent = STYLES;
+    document.head.appendChild(style);
+    loadCount();
+    return () => document.head.removeChild(style);
+  }, []);
+
+  const loadCount = async () => {
+    try {
+      const res = await window.storage.list("sf2_wl:", true);
+      setCount(83 + res.keys.length);
+    } catch { /* keep seed */ }
+  };
+
+  const handleSubmit = async () => {
+    if (!form.name.trim() || !form.email.trim()) return;
+    setSubmitting(true);
+    try {
+      const key = `sf2_wl:${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+      await window.storage.set(key, JSON.stringify({ ...form, ts: new Date().toISOString() }), true);
+    } catch { /* best effort */ }
+    setCount(c => c + 1);
+    setSubmitted(true);
+    setSubmitting(false);
+  };
+
+  const scrollTo = id => document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
+
+  const services = [
+    {
+      icon: "🎹",
+      title: "Music Production",
+      desc: "Full beat creation, arrangement, and sonic direction — from concept to complete record.",
+      features: ["Custom beat production", "Arrangement & composition", "Genre-spanning expertise", "Artist development support"],
+    },
+    {
+      icon: "🎚️",
+      title: "Mixing",
+      desc: "Every element finds its place. We balance, enhance, and sculpt your raw recordings into a punishing mix.",
+      features: ["Multi-track mixing", "Vocal treatment & tuning", "Frequency sculpting", "Spatial depth & width"],
+    },
+    {
+      icon: "⚡",
+      title: "Mastering",
+      desc: "The final forge. Your music, competition-ready on every platform, speaker, and headphone.",
+      features: ["Streaming-optimized loudness", "Dynamic range control", "Stereo enhancement", "WAV · MP3 · AAC delivery"],
+    },
+  ];
+
+  const steps = [
+    { n: "01", t: "Submit Your Project", d: "Send us your stems, rough mix, or reference tracks via our secure upload portal." },
+    { n: "02", t: "Creative Brief", d: "We align on your sonic vision, references, timeline, and goals." },
+    { n: "03", t: "We Get to Work", d: "Our engineers spend real time on your music — no templates, no shortcuts." },
+    { n: "04", t: "Revisions & Delivery", d: "Feedback rounds until it's exactly right. Then delivered in every format you need." },
+  ];
+
+  const stats = [
+    { v: "300+", l: "Tracks Delivered" },
+    { v: "48hr", l: "Standard Turnaround" },
+    { v: "∞", l: "Revisions Included" },
+    { v: "100%", l: "Satisfaction Rate" },
+  ];
+
+  return (
+    <div style={{ fontFamily: "'DM Sans', sans-serif", background: "var(--bg)", minHeight: "100vh", color: "var(--text)" }}>
+      <div className="grain" />
+
+      {/* ── NAV ── */}
+      <nav style={{
+        position: "fixed", top: 0, left: 0, right: 0, zIndex: 200,
+        display: "flex", justifyContent: "space-between", alignItems: "center",
+        padding: "18px 32px",
+        background: "rgba(6,6,6,0.82)", backdropFilter: "blur(24px)",
+        borderBottom: "1px solid var(--border)",
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "9px" }}>
+          <div style={{
+            width: 30, height: 30, background: "var(--fire)", borderRadius: "7px",
+            display: "flex", alignItems: "center", justifyContent: "center",
+          }}>
+            <EQLogo size={16} />
+          </div>
+          <span style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: "17px", letterSpacing: "0.04em" }}>
+            SONICFORGE
+          </span>
+        </div>
+
+        <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+          <button className="nav-link" onClick={() => scrollTo("services")} style={{ padding: "7px 12px" }}>
+            Services
+          </button>
+          <button className="nav-link" onClick={() => scrollTo("process")} style={{ padding: "7px 12px" }}>
+            Process
+          </button>
+          <button className="btn-fire" onClick={() => scrollTo("waitlist")}
+            style={{ padding: "9px 20px", borderRadius: "9px", fontSize: "13px", marginLeft: "6px" }}>
+            Join Waitlist
+          </button>
+        </div>
+      </nav>
+
+      {/* ── HERO ── */}
+      <section style={{
+        minHeight: "100vh",
+        display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center",
+        textAlign: "center", padding: "130px 24px 0",
+        position: "relative", overflow: "hidden",
+      }}>
+        {/* Ambient glow */}
+        <div style={{
+          position: "absolute", top: "38%", left: "50%", transform: "translate(-50%,-50%)",
+          width: 700, height: 700,
+          background: "radial-gradient(circle, rgba(245,77,0,0.07) 0%, transparent 68%)",
+          pointerEvents: "none",
+        }} />
+
+        {/* Badge */}
+        <div className="hero-tag" style={{
+          display: "inline-flex", alignItems: "center", gap: 8,
+          background: "rgba(245,77,0,0.09)", border: "1px solid rgba(245,77,0,0.2)",
+          borderRadius: 100, padding: "6px 14px", marginBottom: 32,
+          fontSize: 11, color: "var(--ember)", fontWeight: 600, letterSpacing: "0.1em",
+        }}>
+          <div className="live-dot" style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--fire)" }} />
+          NOW ACCEPTING EARLY ACCESS
+        </div>
+
+        {/* Headline */}
+        <h1 className="hero-h1" style={{
+          fontFamily: "'Syne', sans-serif",
+          fontSize: "clamp(36px, 8vw, 80px)",
+          fontWeight: 800, lineHeight: 0.92,
+          letterSpacing: "-0.03em",
+          marginBottom: 28, maxWidth: 820,
+        }}>
+          YOUR SOUND.<br />
+          <span className="shimmer-text">PERFECTED.</span>
+        </h1>
+
+        {/* Sub */}
+        <p className="hero-sub" style={{
+          fontSize: "clamp(14px, 2vw, 17px)", color: "var(--mid)",
+          maxWidth: 460, lineHeight: 1.65, marginBottom: 44, fontWeight: 300,
+        }}>
+          Professional music production, mixing &amp; mastering for artists who demand the best.
+          Crafted with precision. Built to move crowds.
+        </p>
+
+        {/* CTAs */}
+        <div className="hero-ctas" style={{ display: "flex", gap: 12, flexWrap: "wrap", justifyContent: "center" }}>
+          <button className="btn-fire" onClick={() => scrollTo("waitlist")}
+            style={{ padding: "15px 34px", borderRadius: 11, fontSize: 15, letterSpacing: "0.01em" }}>
+            Join the Waitlist →
+          </button>
+          <button className="btn-ghost" onClick={() => scrollTo("services")}
+            style={{ padding: "15px 28px", borderRadius: 11, fontSize: 15 }}>
+            Our Services
+          </button>
+        </div>
+
+        {/* Count */}
+        <div className="hero-meta" style={{ marginTop: 28, fontSize: 13, color: "var(--dim)" }}>
+          <span style={{ color: "var(--ember)", fontWeight: 600 }}>{count}</span> artists already on the list
+        </div>
+
+        {/* EQ Visualizer */}
+        <div className="hero-eq" style={{
+          marginTop: 72, width: "100%", maxWidth: 760,
+          display: "flex", gap: "3px", alignItems: "flex-end", height: 90,
+        }}>
+          {bars.map((b, i) => {
+            const pos = i / barCount;
+            const r = Math.round(245 - pos * 44);
+            const g = Math.round(77 + pos * 65);
+            const opacity = 0.35 + (b.h / 100) * 0.55;
+            return (
+              <div key={i} style={{
+                flex: 1, height: `${b.h}%`,
+                background: `rgba(${r},${g},0,${opacity})`,
+                borderRadius: "2px 2px 0 0",
+                transformOrigin: "bottom",
+                animation: `eqBar ${b.dur}s ease-in-out ${b.delay}s infinite alternate`,
+              }} />
+            );
+          })}
+        </div>
+
+        {/* EQ floor line */}
+        <div style={{ width: "100%", maxWidth: 760, height: 1, background: "var(--border)" }} />
+      </section>
+
+      {/* ── SERVICES ── */}
+      <section id="services" style={{ padding: "96px 24px", maxWidth: 1120, margin: "0 auto" }}>
+        <div style={{ textAlign: "center", marginBottom: 60 }}>
+          <p style={{ color: "var(--fire)", fontSize: 11, fontWeight: 700, letterSpacing: "0.18em", marginBottom: 14 }}>
+            WHAT WE DO
+          </p>
+          <h2 style={{ fontFamily: "'Syne', sans-serif", fontSize: "clamp(30px, 5vw, 52px)", fontWeight: 800, letterSpacing: "-0.025em", lineHeight: 1.05 }}>
+            Studio-grade sound,<br />without the studio price.
+          </h2>
+        </div>
+
+        <div className="services-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16 }}>
+          {services.map((s, i) => (
+            <div key={i} className="card" style={{ padding: "34px 30px", position: "relative", overflow: "hidden" }}>
+              {/* Corner glow */}
+              <div style={{
+                position: "absolute", top: 0, right: 0,
+                width: 140, height: 140,
+                background: "radial-gradient(circle, rgba(245,77,0,0.055) 0%, transparent 70%)",
+                transform: "translate(30%,-30%)", pointerEvents: "none",
+              }} />
+
+              <div style={{ fontSize: 30, marginBottom: 18 }}>{s.icon}</div>
+              <h3 style={{ fontFamily: "'Syne', sans-serif", fontSize: 21, fontWeight: 700, marginBottom: 12 }}>
+                {s.title}
+              </h3>
+              <p style={{ color: "var(--mid)", lineHeight: 1.62, fontSize: 13.5, marginBottom: 26, fontWeight: 300 }}>
+                {s.desc}
+              </p>
+              <ul style={{ listStyle: "none", display: "flex", flexDirection: "column", gap: 9 }}>
+                {s.features.map((f, j) => (
+                  <li key={j} style={{ display: "flex", alignItems: "center", gap: 9, fontSize: 13, color: "#a09890" }}>
+                    <div style={{ width: 3, height: 3, borderRadius: "50%", background: "var(--fire)", flexShrink: 0 }} />
+                    {f}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ── PROCESS ── */}
+      <section id="process" style={{ borderTop: "1px solid var(--border)", borderBottom: "1px solid var(--border)", background: "var(--s1)", padding: "88px 24px" }}>
+        <div style={{ maxWidth: 1000, margin: "0 auto" }}>
+          <div style={{ textAlign: "center", marginBottom: 60 }}>
+            <p style={{ color: "var(--fire)", fontSize: 11, fontWeight: 700, letterSpacing: "0.18em", marginBottom: 14 }}>
+              THE PROCESS
+            </p>
+            <h2 style={{ fontFamily: "'Syne', sans-serif", fontSize: "clamp(28px, 4vw, 46px)", fontWeight: 800, letterSpacing: "-0.025em" }}>
+              Simple. Seamless. Sonic.
+            </h2>
+          </div>
+
+          <div className="process-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 4 }}>
+            {steps.map((s, i) => (
+              <div key={i} className="step-wrap" style={{ padding: "28px 22px", borderRadius: 14, transition: "background 0.2s", cursor: "default" }}
+                onMouseEnter={e => e.currentTarget.style.background = "rgba(245,77,0,0.04)"}
+                onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+              >
+                <div className="step-num">{s.n}</div>
+                <h4 style={{ fontFamily: "'Syne', sans-serif", fontWeight: 700, fontSize: 15.5, margin: "6px 0 10px" }}>
+                  {s.t}
+                </h4>
+                <p style={{ color: "var(--dim)", fontSize: 13, lineHeight: 1.65, fontWeight: 300 }}>
+                  {s.d}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── STATS ── */}
+      <section style={{ padding: "72px 24px" }}>
+        <div className="stats-grid" style={{
+          display: "grid", gridTemplateColumns: "repeat(4, 1fr)",
+          gap: 24, maxWidth: 880, margin: "0 auto", textAlign: "center",
+        }}>
+          {stats.map((s, i) => (
+            <div key={i}>
+              <div style={{
+                fontFamily: "'Syne', sans-serif",
+                fontSize: "clamp(36px, 5vw, 52px)",
+                fontWeight: 800, lineHeight: 1,
+                background: "linear-gradient(135deg, var(--fire), var(--gold))",
+                WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text",
+              }}>
+                {s.v}
+              </div>
+              <div style={{ color: "var(--dim)", fontSize: 12.5, marginTop: 7, letterSpacing: "0.04em" }}>
+                {s.l}
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ── WAITLIST ── */}
+      <section id="waitlist" style={{ padding: "80px 24px 100px" }}>
+        <div style={{ maxWidth: 540, margin: "0 auto" }}>
+          <div style={{
+            background: "var(--s1)", border: "1px solid var(--border)",
+            borderRadius: 24, padding: "clamp(32px,7vw,56px)",
+            position: "relative", overflow: "hidden",
+          }}>
+            {/* Ambient */}
+            <div style={{
+              position: "absolute", bottom: 0, left: "50%", transform: "translateX(-50%)",
+              width: 340, height: 220,
+              background: "radial-gradient(ellipse, rgba(245,77,0,0.07) 0%, transparent 70%)",
+              pointerEvents: "none",
+            }} />
+
+            {!submitted ? (
+              <>
+                <p style={{ color: "var(--fire)", fontSize: 11, fontWeight: 700, letterSpacing: "0.18em", marginBottom: 14 }}>
+                  EARLY ACCESS
+                </p>
+                <h2 style={{ fontFamily: "'Syne', sans-serif", fontSize: "clamp(26px, 4vw, 36px)", fontWeight: 800, letterSpacing: "-0.025em", marginBottom: 12 }}>
+                  Be first in the forge.
+                </h2>
+                <p style={{ color: "var(--mid)", fontSize: 14, lineHeight: 1.65, marginBottom: 32, fontWeight: 300 }}>
+                  Join the waitlist for exclusive early access, launch pricing, and priority booking the moment we open our doors.
+                </p>
+
+                <div style={{ display: "flex", flexDirection: "column", gap: 11 }}>
+                  <input className="field" type="text" placeholder="Your name"
+                    value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
+                  <input className="field" type="email" placeholder="Email address"
+                    value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
+                  <select className="field" value={form.genre}
+                    onChange={e => setForm(f => ({ ...f, genre: e.target.value }))}
+                    style={{ color: form.genre ? "var(--text)" : "var(--dim)", cursor: "pointer" }}>
+                    <option value="">Genre / Style (optional)</option>
+                    <option value="hip-hop">Hip-Hop / Rap</option>
+                    <option value="rnb">R&amp;B / Soul</option>
+                    <option value="pop">Pop</option>
+                    <option value="electronic">Electronic / EDM</option>
+                    <option value="rock">Rock / Alternative</option>
+                    <option value="afrobeats">Afrobeats</option>
+                    <option value="jazz">Jazz / Blues</option>
+                    <option value="country">Country / Folk</option>
+                    <option value="other">Other</option>
+                  </select>
+
+                  <button className="btn-fire" onClick={handleSubmit}
+                    disabled={submitting || !form.name.trim() || !form.email.trim()}
+                    style={{ padding: "16px", borderRadius: 11, fontSize: 15, marginTop: 4, letterSpacing: "0.01em" }}>
+                    {submitting ? "Securing your spot…" : `Claim Spot #${count + 1}`}
+                  </button>
+                </div>
+
+                <p style={{ color: "var(--dim)", fontSize: 12, textAlign: "center", marginTop: 16 }}>
+                  No spam. No selling. Just your place in line.
+                </p>
+              </>
+            ) : (
+              <div className="success-wrap" style={{ textAlign: "center", padding: "16px 0" }}>
+                <div style={{
+                  width: 66, height: 66, margin: "0 auto 24px",
+                  background: "rgba(245,77,0,0.1)", border: "1px solid rgba(245,77,0,0.25)",
+                  borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center",
+                  fontSize: 26,
+                }}>
+                  🎧
+                </div>
+                <h3 style={{ fontFamily: "'Syne', sans-serif", fontSize: 30, fontWeight: 800, marginBottom: 10 }}>
+                  You're in, {form.name.split(" ")[0]}.
+                </h3>
+                <p style={{ color: "var(--mid)", lineHeight: 1.65, marginBottom: 28, fontSize: 14, fontWeight: 300 }}>
+                  You're <span style={{ color: "var(--ember)", fontWeight: 600 }}>#{count}</span> on the list.
+                  We'll hit your inbox the moment early access drops.
+                </p>
+                <div style={{
+                  background: "rgba(245,77,0,0.06)", border: "1px solid rgba(245,77,0,0.13)",
+                  borderRadius: 12, padding: "16px 20px",
+                  fontSize: 13, color: "#a09890", lineHeight: 1.65,
+                }}>
+                  Early access members get <strong style={{ color: "var(--text)" }}>25% off</strong> their first project
+                  and <strong style={{ color: "var(--text)" }}>priority booking</strong> for the first 60 days.
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </section>
+
+      {/* ── FOOTER ── */}
+      <footer style={{
+        borderTop: "1px solid var(--border)",
+        padding: "32px 32px",
+        display: "flex", justifyContent: "space-between", alignItems: "center",
+        flexWrap: "wrap", gap: 16, maxWidth: 1120, margin: "0 auto",
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
+          <div style={{
+            width: 24, height: 24, background: "var(--fire)", borderRadius: "6px",
+            display: "flex", alignItems: "center", justifyContent: "center",
+          }}>
+            <EQLogo size={13} />
+          </div>
+          <span style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: 14, letterSpacing: "0.04em" }}>
+            SONICFORGE
+          </span>
+        </div>
+        <div style={{ display: "flex", gap: 24, alignItems: "center" }}>
+          <span style={{ color: "var(--dim)", fontSize: 12 }}>Where Sound Gets Shaped.</span>
+          <span style={{ color: "var(--dim)", fontSize: 12 }}>© 2026 SonicForge</span>
+        </div>
+      </footer>
+    </div>
+  );
+}
